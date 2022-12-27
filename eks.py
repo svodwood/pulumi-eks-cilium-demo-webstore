@@ -6,7 +6,7 @@ from pulumi_kubernetes.helm.v3 import Release, ReleaseArgs, RepositoryOptsArgs
 
 import json
 
-from settings import general_tags, cluster_descriptor, flux_github_repo_owner, flux_github_repo_name, flux_github_token, flux_cli_version, cilium_release_version, saleor_storefront_bucket_name, saleor_dashboard_bucket_name, saleor_media_bucket_name, demo_vpc_cidr, demo_eks_cp_subnet_cidrs
+from settings import general_tags, cluster_descriptor, flux_github_repo_owner, flux_github_repo_name, flux_github_token, flux_cli_version, cilium_release_version, saleor_storefront_bucket_name, saleor_dashboard_bucket_name, saleor_media_bucket_name
 from vpc import demo_vpc, demo_private_subnets, demo_eks_cp_subnets
 from helpers import create_iam_role, create_oidc_role, create_policy
 
@@ -143,7 +143,7 @@ demo_eks_loggroup = cloudwatch.LogGroup("demo-eks-loggroup",
 )
 
 """
-Create an EKS control plane
+Create an EKS control plane:
 """
 
 # Create the cluster control plane:
