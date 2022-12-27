@@ -6,12 +6,12 @@ from pulumi_kubernetes.helm.v3 import Release, ReleaseArgs, RepositoryOptsArgs
 
 import json
 
-from settings import general_tags, cluster_descriptor, flux_github_repo_owner, flux_github_repo_name, flux_github_token, flux_cli_version, cilium_release_version, saleor_storefront_bucket_name, saleor_dashboard_bucket_name, saleor_media_bucket_name
+from settings import general_tags, cluster_descriptor, flux_github_repo_owner, flux_github_repo_name, flux_github_token, flux_cli_version, cilium_release_version, saleor_storefront_bucket_name, saleor_dashboard_bucket_name, saleor_media_bucket_name, demo_vpc_cidr, demo_eks_cp_subnet_cidrs
 from vpc import demo_vpc, demo_private_subnets, demo_eks_cp_subnets
 from helpers import create_iam_role, create_oidc_role, create_policy
 
 """
-Shared EKS resources
+Shared EKS resources: IAM policies for EKS, Karpenter and Cilium
 """
 
 # Create an EKS cluster role:
@@ -36,22 +36,31 @@ cni_service_account_policy_arns = [
     "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
 ]
 
-# Create a default demo EKS cluster nodegroup security group:
+"""
+A set of custom security groups: one for the EKS cluster and one for the Karpenter-managed nodes.
+"""
+# Both security groups created below.
+"""
+Node security group:
+"""
+# Create a custom default demo EKS cluster nodegroup security group:
 demo_nodegroup_security_group = ec2.SecurityGroup(f"custom-node-attach-{cluster_descriptor}",
     description=f"{cluster_descriptor} custom node security group",
     vpc_id=demo_vpc.id,
     tags={**general_tags, "Name": f"custom-node-attach-{cluster_descriptor}", "karpenter.sh/discovery": f"{cluster_descriptor}"}
 )
 
-demo_nodegroup_security_group_inbound_custom_cidrs = ec2.SecurityGroupRule(f"inbound-eks-node-{cluster_descriptor}",
+# Allow all node instances to communicate with each other:
+demo_nodegroup_security_group_inbound_self = ec2.SecurityGroupRule(f"inbound-eks-node-self-{cluster_descriptor}",
     type="ingress",
-    from_port=443,
-    to_port=443,
-    protocol="tcp",
-    cidr_blocks=["0.0.0.0/0"],
+    from_port=0,
+    to_port=0,
+    protocol="-1",
+    self=True,
     security_group_id=demo_nodegroup_security_group.id
 )
 
+# Allow outbound ANY:
 demo_nodegroup_security_group_oubound_custom_cidrs = ec2.SecurityGroupRule(f"outbound-eks-node-{cluster_descriptor}",
     type="egress",
     to_port=0,
@@ -61,6 +70,9 @@ demo_nodegroup_security_group_oubound_custom_cidrs = ec2.SecurityGroupRule(f"out
     security_group_id=demo_nodegroup_security_group.id
 )
 
+"""
+Cluster security group:
+"""
 # Create a default demo EKS cluster security group:
 demo_cluster_security_group = ec2.SecurityGroup(f"custom-cluster-attach-{cluster_descriptor}",
     description=f"{cluster_descriptor} custom security group",
@@ -68,15 +80,27 @@ demo_cluster_security_group = ec2.SecurityGroup(f"custom-cluster-attach-{cluster
     tags={**general_tags, "Name": f"custom-cluster-attach-{cluster_descriptor}"}
 )
 
-demo_cluster_security_group_inbound_custom_cidrs = ec2.SecurityGroupRule(f"inbound-eks-cp-{cluster_descriptor}",
+# Allow all traffic from custom Karpenter node security group:
+demo_cluster_security_group_inbound_node = ec2.SecurityGroupRule(f"inbound-eks-cp-inbound-node-{cluster_descriptor}",
+    type="ingress",
+    from_port=0,
+    to_port=0,
+    protocol="-1",
+    source_security_group_id=demo_nodegroup_security_group,
+    security_group_id=demo_cluster_security_group.id
+)
+
+# Allow kubectl from ANY:
+demo_cluster_security_group_inbound_443 = ec2.SecurityGroupRule(f"inbound-eks-cp-443-{cluster_descriptor}",
     type="ingress",
     from_port=443,
     to_port=443,
-    protocol="tcp",
+    protocol="-1",
     cidr_blocks=["0.0.0.0/0"],
     security_group_id=demo_cluster_security_group.id
 )
 
+# Allow outbound ANY:
 demo_cluster_security_group_oubound_custom_cidrs = ec2.SecurityGroupRule(f"outbound-eks-cp-{cluster_descriptor}",
     type="egress",
     to_port=0,
@@ -86,12 +110,30 @@ demo_cluster_security_group_oubound_custom_cidrs = ec2.SecurityGroupRule(f"outbo
     security_group_id=demo_cluster_security_group.id
 )
 
+# Allow all traffic from cluster SG to nodes after the cluster SG is defined:
+demo_nodegroup_security_group_inbound_from_cp = ec2.SecurityGroupRule(f"inbound-eks-node-from-cp-{cluster_descriptor}",
+    type="ingress",
+    from_port=0,
+    to_port=0,
+    protocol="-1",
+    source_security_group_id=demo_cluster_security_group,
+    security_group_id=demo_nodegroup_security_group.id
+)
+
+"""
+Instance profile for Karpenter-managed nodes:
+"""
+
 # Create a default Karpenter node role and instance profile:
 karpenter_node_role = create_iam_role(f"KarpenterNodeRole-{cluster_descriptor}", "Service", "ec2.amazonaws.com", karpenter_default_nodegroup_role_policy_arns)
 karpenter_instance_profile = iam.InstanceProfile(f"KarpenterNodeInstanceProfile-{cluster_descriptor}",
     role=karpenter_node_role.name,
     name=f"KarpenterNodeInstanceProfile-{cluster_descriptor}"
 )
+
+"""
+EKS Control Plane:
+"""
 
 # Create an EKS log group:
 demo_eks_loggroup = cloudwatch.LogGroup("demo-eks-loggroup", 
@@ -377,10 +419,14 @@ saleor_core_service_account_policy = iam.Policy("saleor-core-sa-policy",
         "Version": "2012-10-17",
         "Statement": [{
             "Action": [
-                "s3:GetObject"
+                "s3:GetObject",
+                "s3:ListBucket"
             ],
             "Effect": "Allow",
-            "Resource": f"arn:aws:s3:::{saleor_media_bucket_name}/*",
+            "Resource": [
+                f"arn:aws:s3:::{saleor_media_bucket_name}",
+                f"arn:aws:s3:::{saleor_media_bucket_name}/*"
+            ]
         }],
     })
 )
@@ -405,10 +451,14 @@ saleor_dashboard_service_account_policy = iam.Policy("saleor-dashboard-sa-policy
         "Version": "2012-10-17",
         "Statement": [{
             "Action": [
-                "s3:GetObject"
+                "s3:GetObject",
+                "s3:ListBucket"
             ],
             "Effect": "Allow",
-            "Resource": f"arn:aws:s3:::{saleor_dashboard_bucket_name}/*",
+            "Resource": [
+                f"arn:aws:s3:::{saleor_dashboard_bucket_name}",
+                f"arn:aws:s3:::{saleor_dashboard_bucket_name}/*"
+            ]
         }],
     })
 )
@@ -432,14 +482,18 @@ saleor_storefront_service_account_policy = iam.Policy("saleor-storefront-sa-poli
         "Version": "2012-10-17",
         "Statement": [{
             "Action": [
-                "s3:GetObject"
+                "s3:GetObject",
+                "s3:ListBucket"
             ],
             "Effect": "Allow",
-            "Resource": f"arn:aws:s3:::{saleor_storefront_bucket_name}/*",
+            "Resource": [
+                f"arn:aws:s3:::{saleor_storefront_bucket_name}",
+                f"arn:aws:s3:::{saleor_storefront_bucket_name}/*"
+            ]
         }],
     })
 )
 
-# Saleor Core IAM role for service account:
+# Saleor Storefront IAM role for service account:
 iam_role_saleor_storefront_service_account_role = create_oidc_role("saleor-storefront-sa", "saleor-storefront", demo_eks_cluster_oidc_arn, demo_eks_cluster_oidc_url, "saleor-storefront-sa", [saleor_storefront_service_account_policy.arn])
 export("saleor-storefront-oidc-role-arn", iam_role_saleor_storefront_service_account_role.arn)
