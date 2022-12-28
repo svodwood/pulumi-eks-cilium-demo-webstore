@@ -18,3 +18,8 @@ template:
     flux-github-token:
         description: Github access token
         secret: true
+    sql-user:
+        description: RDS PostgreSQL master user
+        secret: true
+    sql-password:
+        description: RDS PostgreSQL master password

@@ -6,7 +6,7 @@ from pulumi_kubernetes.helm.v3 import Release, ReleaseArgs, RepositoryOptsArgs
 
 import json
 
-from settings import general_tags, cluster_descriptor, flux_github_repo_owner, flux_github_repo_name, flux_github_token, flux_cli_version, cilium_release_version, saleor_storefront_bucket_name, saleor_dashboard_bucket_name, saleor_media_bucket_name
+from settings import general_tags, cluster_descriptor, flux_github_repo_owner, flux_github_repo_name, flux_github_token, flux_cli_version, cilium_release_version, saleor_storefront_bucket_name, saleor_dashboard_bucket_name, saleor_media_bucket_name, sql_connection_string_ssm_parameter_name, deployment_region, account_id
 from vpc import demo_vpc, demo_private_subnets, demo_eks_cp_subnets
 from helpers import create_iam_role, create_oidc_role, create_policy
 
@@ -399,6 +399,40 @@ karpenter_namespace = k8s.core.v1.Namespace("karpenter-namespace",
         depends_on=[demo_eks_cluster]
     )
 )
+
+"""
+Set up namespace and service account for External Secrets operator
+"""
+external_secrets_core_namespace = k8s.core.v1.Namespace("external-secrets-namespace",
+    metadata={"name": "external-secrets"},
+    opts=ResourceOptions(
+        provider=role_provider,
+        depends_on=[demo_eks_cluster]
+    )
+)
+
+# Add service account role for External Secrets SA to fetch RDS secret from Parameter Store:
+external_secrets_service_account_policy = iam.Policy("external-secrets-sa-policy",
+    description="External Secrets Service Account SSM Parameter Store Policy",
+    policy=json.dumps({
+        "Version": "2012-10-17",
+        "Statement": [{
+            "Action": [
+                "ssm:GetParameter",
+                "ssm:GetParametersByPath",
+                "ssm:GetParameters"
+            ],
+            "Effect": "Allow",
+            "Resource": [
+                f"arn:aws:ssm:{deployment_region}:{account_id}:parameter/{sql_connection_string_ssm_parameter_name}"
+            ]
+        }],
+    })
+)
+
+# External Secrets IAM role for service account:
+iam_role_external_secrets_service_account_role = create_oidc_role("external-secrets-sa", "external-secrets", demo_eks_cluster_oidc_arn, demo_eks_cluster_oidc_url, "external-secrets-sa", [external_secrets_service_account_policy.arn])
+export("external-secrets-oidc-role-arn", iam_role_external_secrets_service_account_role.arn)
 
 """
 Set up namespaces and service accounts for Saleor components

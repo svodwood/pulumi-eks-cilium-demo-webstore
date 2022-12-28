@@ -9,4 +9,6 @@ import s3
 import vpc
 import subnet_groups
 import vpc_endpoints
+import elasticache
+import rds
 import eks

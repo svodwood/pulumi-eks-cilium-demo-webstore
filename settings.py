@@ -1,11 +1,12 @@
 import pulumi
-from pulumi_aws import config
+from pulumi_aws import config, get_caller_identity
 
 """
 Configuration variables from pulumi settings file
 """
 stack_config = pulumi.Config()
 stack_name = pulumi.get_stack()
+aws_provider = get_caller_identity()
 
 """
 General cost tags populated to every single resource in the account:
@@ -37,10 +38,19 @@ demo_db_subnet_cidrs = [
     "10.200.67.0/24"
 ]
 
+account_id = aws_provider.account_id
 deployment_region = config.region
 endpoint_services = ["ecr.api","ecr.dkr","ec2","sts","logs","s3","email-smtp","cloudformation"]
 cluster_descriptor = "cilium-web-demo"
 cilium_release_version = "1.12.5"
+redis_instance_size = "cache.t4g.micro"
+postgres_instance_size = "db.t4g.small"
+db_name = "saleor"
+sql_connection_string_ssm_parameter_name = "saleor-sql-connection-string"
+
+# Database credentials:
+sql_user = stack_config.require_secret("sql-user")
+sql_password = stack_config.require_secret("sql-password")
 
 # Make sure to change the below bucket names since these are globally unique!
 
