@@ -58,6 +58,7 @@ sql_password = stack_config.require_secret("sql-password")
 saleor_storefront_bucket_name = "saleor-storefront-cilium-demo"
 saleor_dashboard_bucket_name = "saleor-dashboard-cilium-demo"
 saleor_media_bucket_name = "saleor-media-silium-demo"
+saleor_static_bucket_name = "saleor-static-silium-demo"
 
 """
 Flux Bootstrap args
