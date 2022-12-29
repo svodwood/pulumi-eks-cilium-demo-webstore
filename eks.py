@@ -251,7 +251,10 @@ cilium_cni_release = Release("cilium-cni",
                 },
                 "eni": {
                     "enabled": True,
-                    "iamRole": args[0]
+                    "iamRole": args[0],
+                    "updateEC2AdapterLimitViaAPI": True,
+                    "awsReleaseExcessIPs": True,
+                    "subnetTagsFilter": "cilium-pod-interfaces=private",
                 },
                 "ipam": {
                     "mode": "eni",
@@ -259,7 +262,7 @@ cilium_cni_release = Release("cilium-cni",
                 "egressMasqueradeInterfaces": "eth0",
                 "tunnel": "disabled",
                 "loadBalancer": {
-                    "algorithm": "maglev"
+                    "algorithm": "maglev",
                 },
                 "kubeProxyReplacement": "strict",
                 "k8sServiceHost": args[1].replace("https://",""),
@@ -281,9 +284,9 @@ cilium_cni_release = Release("cilium-cni",
 )
 
 # Create an initial Nodegroup when the control plane is initialized:
-initial_managed_nodegroup = eks_provider.ManagedNodeGroup("cilium-initial-nodegroup",
+managed_nodegroup = eks_provider.ManagedNodeGroup("cilium-managed-nodegroup",
     cluster=demo_eks_cluster,
-    node_group_name="initial-nodegroup",
+    node_group_name="managed-nodegroup",
     node_role=karpenter_node_role,
     subnet_ids=[s.id for s in demo_private_subnets],
     force_update_version=True,
@@ -295,7 +298,7 @@ initial_managed_nodegroup = eks_provider.ManagedNodeGroup("cilium-initial-nodegr
         "max_size": 2
     },
     capacity_type="ON_DEMAND",
-    tags={**general_tags, "Name": f"cilium-initial-nodegroup"},
+    tags={**general_tags, "Name": f"cilium-managed-nodegroup"},
     taints=[
         {
             "key": "node.cilium.io/agent-not-ready",
@@ -315,7 +318,7 @@ core_dns_addon = eks.Addon("coredns-addon",
     addon_version="v1.8.7-eksbuild.3",
     resolve_conflicts="OVERWRITE",
     opts=ResourceOptions(
-        depends_on=[initial_managed_nodegroup, cilium_cni_release]
+        depends_on=[managed_nodegroup, cilium_cni_release]
     )
 )
 

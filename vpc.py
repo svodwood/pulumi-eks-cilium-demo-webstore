@@ -98,7 +98,7 @@ for i in range(2):
         vpc_id=demo_vpc.id,
         cidr_block=demo_private_subnet_cidrs[i],
         availability_zone=demo_azs[i],
-        tags={**general_tags, "Name": f"demo-private-subnet-{prefix}", "karpenter.sh/discovery": f"{cluster_descriptor}"},
+        tags={**general_tags, "cilium-pod-interfaces": "private" ,"Name": f"demo-private-subnet-{prefix}", "karpenter.sh/discovery": f"{cluster_descriptor}"},
         opts=pulumi.ResourceOptions(parent=demo_vpc)
     )
     
