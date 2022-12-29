@@ -6,7 +6,7 @@ from pulumi_kubernetes.helm.v3 import Release, ReleaseArgs, RepositoryOptsArgs
 
 import json
 
-from settings import general_tags, cluster_descriptor, flux_github_repo_owner, flux_github_repo_name, flux_github_token, flux_cli_version, cilium_release_version, saleor_storefront_bucket_name, saleor_dashboard_bucket_name, saleor_media_bucket_name, sql_connection_string_ssm_parameter_name, deployment_region, account_id
+from settings import general_tags, cluster_descriptor, flux_github_repo_owner, flux_github_repo_name, flux_github_token, flux_cli_version, cilium_release_version, saleor_storefront_bucket_name, saleor_dashboard_bucket_name, saleor_media_bucket_name, sql_connection_string_ssm_parameter_name, redis_connection_string_ssm_parameter_name, deployment_region, account_id
 from vpc import demo_vpc, demo_private_subnets, demo_eks_cp_subnets
 from helpers import create_iam_role, create_oidc_role, create_policy
 
@@ -424,7 +424,8 @@ external_secrets_service_account_policy = iam.Policy("external-secrets-sa-policy
             ],
             "Effect": "Allow",
             "Resource": [
-                f"arn:aws:ssm:{deployment_region}:{account_id}:parameter/{sql_connection_string_ssm_parameter_name}"
+                f"arn:aws:ssm:{deployment_region}:{account_id}:parameter/{sql_connection_string_ssm_parameter_name}",
+                f"arn:aws:ssm:{deployment_region}:{account_id}:parameter/{redis_connection_string_ssm_parameter_name}"
             ]
         }],
     })
