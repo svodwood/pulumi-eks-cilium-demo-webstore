@@ -47,6 +47,7 @@ redis_instance_size = "cache.t4g.micro"
 postgres_instance_size = "db.t4g.small"
 db_name = "saleor"
 sql_connection_string_ssm_parameter_name = "saleor-sql-connection-string"
+redis_connection_string_ssm_parameter_name = "saleor-redis-connection-string"
 
 # Database credentials:
 sql_user = stack_config.require_secret("sql-user")

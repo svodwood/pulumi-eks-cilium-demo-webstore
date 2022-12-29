@@ -1,7 +1,7 @@
-from pulumi_aws import elasticache, cloudwatch, ec2
-from pulumi import export
+from pulumi_aws import elasticache, cloudwatch, ec2, ssm
+from pulumi import export, Output
 
-from settings import general_tags, redis_instance_size, demo_private_subnet_cidrs
+from settings import general_tags, redis_instance_size, demo_private_subnet_cidrs, redis_connection_string_ssm_parameter_name
 from subnet_groups import demo_redis_subnet_group
 from vpc import demo_vpc
 
@@ -68,3 +68,16 @@ demo_redis_cluster = elasticache.ReplicationGroup("demo-saleor-core-redis-cluste
 )
 export("redis-primary-endpoint", demo_redis_cluster.primary_endpoint_address)
 export("redis-reader-endpoint", demo_redis_cluster.reader_endpoint_address)
+
+redis_endpoint = Output.concat("redis://", demo_redis_cluster.primary_endpoint_address, ":6379")
+
+"""
+Populate SSM parameter store with the Redis connection string:
+"""
+demo_redis_cluster_connection_string = ssm.Parameter("saleor-redis-connection-string",
+    name=redis_connection_string_ssm_parameter_name,
+    description="Redis connection string for Saleor Core in CACHE_URL format",
+    type="SecureString",
+    value=redis_endpoint,
+    tags={**general_tags, "Name": "saleor-redis-cluster-connection-string"}
+)
