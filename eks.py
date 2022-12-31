@@ -322,6 +322,10 @@ core_dns_addon = eks.Addon("coredns-addon",
     )
 )
 
+"""
+Flux controller set-up:
+"""
+
 # Create a service account and cluster role binding for flux controller
 flux_service_account = k8s.core.v1.ServiceAccount("flux-controller-service-account",
     api_version="v1",
@@ -393,6 +397,10 @@ flux_bootstrap_job = k8s.batch.v1.Job("fluxBootstrapJob",
             ),
         ),
     ))
+
+"""
+Karpenter namespace to deploy Karpenter controller into:
+"""
 
 # Create a karpenter namespace:
 karpenter_namespace = k8s.core.v1.Namespace("karpenter-namespace",
@@ -536,3 +544,37 @@ saleor_storefront_service_account_policy = iam.Policy("saleor-storefront-sa-poli
 # Saleor Storefront IAM role for service account:
 iam_role_saleor_storefront_service_account_role = create_oidc_role("saleor-storefront-sa", "saleor-storefront", demo_eks_cluster_oidc_arn, demo_eks_cluster_oidc_url, "saleor-storefront-sa", [saleor_storefront_service_account_policy.arn])
 export("saleor-storefront-oidc-role-arn", iam_role_saleor_storefront_service_account_role.arn)
+
+# Saleor Static Assets namespace
+saleor_assets_namespace = k8s.core.v1.Namespace("saleor-assets-namespace",
+    metadata={"name": "saleor-assets"},
+    opts=ResourceOptions(
+        provider=role_provider,
+        depends_on=[demo_eks_cluster]
+    )
+)
+
+# Saleor Assets service account policy:
+saleor_assets_service_account_policy = iam.Policy("saleor-assets-sa-policy",
+    description="Saleor Assets Service Account S3 Bucket Policy",
+    policy=json.dumps({
+        "Version": "2012-10-17",
+        "Statement": [{
+            "Action": [
+                "s3:GetObject",
+                "s3:ListBucket"
+            ],
+            "Effect": "Allow",
+            "Resource": [
+                f"arn:aws:s3:::{saleor_media_bucket_name}",
+                f"arn:aws:s3:::{saleor_media_bucket_name}/*",
+                f"arn:aws:s3:::{saleor_static_bucket_name}",
+                f"arn:aws:s3:::{saleor_static_bucket_name}/*"
+            ]
+        }],
+    })
+)
+
+# Saleor Assets IAM role for service account:
+iam_role_saleor_assets_service_account_role = create_oidc_role("saleor-assets-sa", "saleor-assets", demo_eks_cluster_oidc_arn, demo_eks_cluster_oidc_url, "saleor-assets-sa", [saleor_assets_service_account_policy.arn])
+export("saleor-assets-oidc-role-arn", iam_role_saleor_assets_service_account_role.arn)
