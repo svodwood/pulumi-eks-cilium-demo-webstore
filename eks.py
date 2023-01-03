@@ -412,6 +412,13 @@ karpenter_namespace = k8s.core.v1.Namespace("karpenter-namespace",
 )
 
 """
+Set up a service account for cert-manager, should you need one with this stack
+"""
+iam_role_cert_manager_policy = create_policy(f"{cluster_descriptor}-cert-manager-policy", "certmanager_oidc_role_policy.json")
+iam_role_cert_manager_service_account_role = create_oidc_role("cert-manager-sa", "kube-system", demo_eks_cluster_oidc_arn, demo_eks_cluster_oidc_url, "cert-manager-sa", [iam_role_cert_manager_policy.arn])
+export("cert-manager-oidc-role-arn", iam_role_cert_manager_service_account_role.arn)
+
+"""
 Set up namespace and service account for External Secrets operator
 """
 external_secrets_core_namespace = k8s.core.v1.Namespace("external-secrets-namespace",
