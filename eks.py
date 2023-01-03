@@ -412,11 +412,21 @@ karpenter_namespace = k8s.core.v1.Namespace("karpenter-namespace",
 )
 
 """
-Set up a service account for cert-manager, should you need one with this stack
+Set up a service account role for cert-manager, should you need one with this stack
 """
+# cert-manager Service Account in kube-system
 iam_role_cert_manager_policy = create_policy(f"{cluster_descriptor}-cert-manager-policy", "certmanager_oidc_role_policy.json")
 iam_role_cert_manager_service_account_role = create_oidc_role("cert-manager-sa", "kube-system", demo_eks_cluster_oidc_arn, demo_eks_cluster_oidc_url, "cert-manager-sa", [iam_role_cert_manager_policy.arn])
 export("cert-manager-oidc-role-arn", iam_role_cert_manager_service_account_role.arn)
+
+"""
+Set up a service account role for external-dns, should you need one with this stack
+"""
+# External DNS Service Account in kube-system
+iam_role_external_dns_controller_policy = create_policy(f"{cluster_descriptor}-external-dns-policy", "external_dns_controller_oidc_role_policy.json")
+iam_role_external_dns_controller_service_account_role = create_oidc_role("external-dns-controller-sa", "kube-system", demo_eks_cluster_oidc_arn, demo_eks_cluster_oidc_url, "external-dns-controller-sa", [iam_role_external_dns_controller_policy.arn])
+export("external-dns-controller-oidc-role-arn", iam_role_external_dns_controller_service_account_role.arn)
+
 
 """
 Set up namespace and service account for External Secrets operator
