@@ -539,29 +539,6 @@ saleor_storefront_namespace = k8s.core.v1.Namespace("saleor-storefront-namespace
     )
 )
 
-# Saleor Storefront service account policy:
-saleor_storefront_service_account_policy = iam.Policy("saleor-storefront-sa-policy",
-    description="Saleor Storefront Service Account S3 Bucket Policy",
-    policy=json.dumps({
-        "Version": "2012-10-17",
-        "Statement": [{
-            "Action": [
-                "s3:GetObject",
-                "s3:ListBucket"
-            ],
-            "Effect": "Allow",
-            "Resource": [
-                f"arn:aws:s3:::{saleor_storefront_bucket_name}",
-                f"arn:aws:s3:::{saleor_storefront_bucket_name}/*"
-            ]
-        }],
-    })
-)
-
-# Saleor Storefront IAM role for service account:
-iam_role_saleor_storefront_service_account_role = create_oidc_role("saleor-storefront-sa", "saleor-storefront", demo_eks_cluster_oidc_arn, demo_eks_cluster_oidc_url, "saleor-storefront-sa", [saleor_storefront_service_account_policy.arn])
-export("saleor-storefront-oidc-role-arn", iam_role_saleor_storefront_service_account_role.arn)
-
 # Saleor Static Assets namespace
 saleor_assets_namespace = k8s.core.v1.Namespace("saleor-assets-namespace",
     metadata={"name": "saleor-assets"},
