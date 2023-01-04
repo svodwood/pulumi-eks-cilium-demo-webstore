@@ -39,7 +39,8 @@ cni_service_account_policy_arns = [
 """
 A set of custom security groups: one for the EKS cluster and one for the Karpenter-managed nodes.
 """
-# Both security groups created below.
+# Both security groups created below. These security groups are attached to the EKS control plane interface endpoints as well as the nodes,
+# provisioned by Karpenter.
 """
 Node security group:
 """
@@ -132,7 +133,7 @@ karpenter_instance_profile = iam.InstanceProfile(f"KarpenterNodeInstanceProfile-
 )
 
 """
-EKS Control Plane:
+EKS Control Plane
 """
 
 # Create an EKS log group:
@@ -141,10 +142,6 @@ demo_eks_loggroup = cloudwatch.LogGroup("demo-eks-loggroup",
     tags=general_tags,
     retention_in_days=1
 )
-
-"""
-Create an EKS control plane:
-"""
 
 # Create the cluster control plane:
 demo_eks_cluster = eks_provider.Cluster(f"eks-{cluster_descriptor}",
@@ -177,6 +174,10 @@ demo_eks_cluster = eks_provider.Cluster(f"eks-{cluster_descriptor}",
 demo_eks_cluster_oidc_arn = demo_eks_cluster.core.oidc_provider.arn
 demo_eks_cluster_oidc_url = demo_eks_cluster.core.oidc_provider.url
 
+"""
+Cilium service account, Karpenter service account:
+"""
+
 # Create an IAM role for Cilium CNI:
 iam_role_vpc_cni_service_account_role = create_oidc_role(f"{cluster_descriptor}-cilium", "kube-system", demo_eks_cluster_oidc_arn, demo_eks_cluster_oidc_url, "cilium-operator", cni_service_account_policy_arns)
 export("cilium-oidc-role-arn", iam_role_vpc_cni_service_account_role.arn)
@@ -185,6 +186,10 @@ export("cilium-oidc-role-arn", iam_role_vpc_cni_service_account_role.arn)
 iam_role_karpenter_controller_policy = create_policy(f"{cluster_descriptor}-karpenter-policy", "karpenter_oidc_role_policy.json")
 iam_role_karpenter_controller_service_account_role = create_oidc_role(f"{cluster_descriptor}-karpenter", "karpenter", demo_eks_cluster_oidc_arn, demo_eks_cluster_oidc_url, "karpenter", [iam_role_karpenter_controller_policy.arn])
 export("karpenter-oidc-role-arn", iam_role_karpenter_controller_service_account_role.arn)
+
+"""
+Kubernetes Pulumi provider to create objects inside the cluster:
+"""
 
 # Create a kubernetes provider:
 role_provider = k8s.Provider(f"{cluster_descriptor}-kubernetes-provider",
@@ -310,6 +315,10 @@ managed_nodegroup = eks_provider.ManagedNodeGroup("cilium-managed-nodegroup",
         depends_on=[demo_eks_cluster, patch_aws_node]
     )
 )
+
+"""
+Default EKS core-dns add-on:
+"""
 
 # Install CoreDNS addon when the cluster is initialized:
 core_dns_addon = eks.Addon("coredns-addon",
