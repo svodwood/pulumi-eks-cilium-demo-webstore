@@ -1,6 +1,3 @@
-# pulumi-eks-cilium-demo-webstore
-Functional Cilium demo deployment on AWS EKS
-
 <a name="readme-top"></a>
 
 <!-- PROJECT LOGO -->
